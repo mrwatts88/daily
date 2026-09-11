@@ -1,0 +1,1297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The List</title>
+<meta name="theme-color" content="#f6f5f2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="The List">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<style>
+  :root {
+    --bg: #f6f5f2;
+    --card: #ffffff;
+    --text: #1c1b19;
+    --muted: #8a867e;
+    --line: #ebe9e4;
+    --accent: #2f6df6;
+    --done: #b5b1a9;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: light; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .head {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 40px 20px 0;
+  }
+  main {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 24px 20px 80px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  .week {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
+  .week span {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+  }
+  .week span.on {
+    color: #fff;
+    background: var(--text);
+    border-color: var(--text);
+  }
+
+  /* Mobile: the two columns sit side by side, one screen each. Swipe or tap to switch. */
+  .tabs {
+    display: none;
+    width: max-content;
+    margin: 14px auto 0;
+    padding: 3px;
+    gap: 2px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .tabs button {
+    border: 0;
+    padding: 6px 20px;
+    border-radius: 7px;
+    color: var(--muted);
+    background: none;
+  }
+  .tabs button.on { color: #fff; background: var(--text); }
+  @media (max-width: 860px) {
+    .tabs { display: flex; }
+    main {
+      display: flex;
+      gap: 0;
+      padding: 16px 0 80px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    main::-webkit-scrollbar { display: none; }
+    main > section {
+      flex: 0 0 100%;
+      min-width: 0;
+      padding: 0 16px;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+    }
+  }
+
+  header {
+    margin: 0 0 20px;
+    padding: 0 4px;
+  }
+  .top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  #count {
+    color: var(--muted);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  button {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  button:hover { border-color: #d6d3cc; }
+  button:active { background: var(--bg); }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  li { box-shadow: 0 -1px 0 var(--line); }
+  label {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+  label:hover { background: #fbfaf8; }
+  input[type="checkbox"] {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .name { font-weight: 500; }
+  .detail {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 1px;
+  }
+  #todos li:has(:checked) .name,
+  #list:not(.editing) > li:has(> label :checked) > label .name,
+  .sub:has(:checked) .name {
+    color: var(--done);
+    text-decoration: line-through;
+    text-decoration-color: #d9d6cf;
+  }
+  #list:not(.editing) > li:has(> label :checked) > label .detail { color: #cbc7bf; }
+
+  /* Rows */
+  #list > li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  #list label, #todos label { flex: 1; min-width: 0; padding-left: 6px; }
+  .grip {
+    flex: none;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    color: #d6d3cc;
+    cursor: grab;
+    touch-action: none;
+  }
+  .grip:hover { color: var(--muted); background: #f3f1ed; }
+  .grip:active { cursor: grabbing; }
+  .grip svg { display: block; width: 10px; height: 16px; }
+  li.dragging { opacity: 0.35; }
+  .punt, .tick {
+    flex: none;
+    align-self: center;
+    padding: 3px 11px;
+    font-size: 12px;
+    line-height: 1.4;
+    border-radius: 999px;
+    color: var(--muted);
+    background: var(--bg);
+  }
+  .punt { margin: 0 12px 0 12px; }
+  .punt:hover, .tick:hover { color: var(--text); }
+  #list > li:has(> label :checked) .punt { display: none; }
+  .on {
+    color: #b7791f;
+    background: #fbf3e3;
+    border-color: #efdcb3;
+  }
+  .on:hover { color: #96620f; }
+
+  /* Row controls: counter, move to top/bottom, punt */
+  .ctl {
+    flex: none;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 12px 0 12px;
+  }
+  #list .punt { margin: 0 0 0 4px; }
+  .counter {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-right: 6px;
+  }
+  .tick { font-variant-numeric: tabular-nums; }
+  .move, .cclear {
+    padding: 4px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: #cfcbc3;
+  }
+  .move:hover, .cclear:hover { color: var(--text); background: #f3f1ed; }
+  .move svg, .cclear svg { display: block; width: 14px; height: 14px; }
+  .cclear { display: none; }
+  .counter.has .cclear { display: block; }
+
+  /* Subtasks: fold button on the row, nested list beneath it */
+  .fold {
+    flex: none;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin: 0 10px 0 0;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: #cfcbc3;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .fold:hover { color: var(--text); background: #f3f1ed; }
+  .fold svg { display: block; width: 14px; height: 14px; transition: transform 0.15s ease; }
+  .fold .sc { color: var(--muted); }
+  .fold .sc.full { color: #2e9e5b; font-weight: 600; }
+  li.open > .fold svg { transform: rotate(180deg); }
+  .subs {
+    display: none;
+    flex: 1 0 100%;
+    border: 0;
+    border-radius: 0;
+    background: #fbfaf8;
+    box-shadow: inset 0 1px 0 var(--line);
+  }
+  li.open > .subs { display: block; }
+  .subs li { box-shadow: none; }
+  .subs li + li { box-shadow: 0 -1px 0 var(--line); }
+  #list .sub label {
+    gap: 12px;
+    padding: 9px 16px 9px 66px;
+  }
+  .sub label:hover { background: #f6f4f0; }
+  .sub input[type="checkbox"] { width: 16px; height: 16px; }
+  .sub .name { font-weight: 400; font-size: 15px; }
+
+  /* Archive view */
+  #list.archive > li:not([data-archived]) { display: none; }
+  #list:not(.archive) > li[data-archived] { display: none; }
+  #list.archive .ctl { display: none; }
+  .punted {
+    color: #b7791f;
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  button:disabled { opacity: 0.45; cursor: default; }
+
+  /* Progress */
+  .bar {
+    height: 4px;
+    background: var(--line);
+    border-radius: 2px;
+    margin: -12px 4px 16px;
+    overflow: hidden;
+  }
+  .bar div {
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.35s ease;
+  }
+  .bar.full div { background: #2e9e5b; }
+  #count.full { color: #2e9e5b; font-weight: 600; }
+  @keyframes flash {
+    0% { background: #dff5e7; }
+    100% { background: transparent; }
+  }
+  li.flash { animation: flash 0.9s ease-out; }
+
+  /* Timer */
+  .tmr {
+    padding: 4px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: #cfcbc3;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tmr:hover { color: var(--text); background: #f3f1ed; }
+  .tmr svg { display: block; width: 14px; height: 14px; }
+  .tmr.live { color: var(--accent); font-weight: 600; padding: 4px 6px; }
+  #list > li:has(> label :checked) .tmr { display: none; }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 27, 25, 0.35);
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    z-index: 10;
+  }
+  .overlay[hidden] { display: none; }
+  .sheet {
+    width: 100%;
+    max-width: 360px;
+    background: var(--card);
+    border-radius: 16px;
+    padding: 28px 24px 22px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  }
+  .m-name { font-weight: 600; font-size: 17px; }
+  .m-time {
+    font-size: 64px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    margin: 14px 0 16px;
+  }
+  .sheet .bar { margin: 0 0 20px; }
+  .sheet.done .m-time { color: #2e9e5b; }
+  .sheet.done .bar div { background: #2e9e5b; }
+  .m-actions { display: flex; justify-content: center; gap: 10px; }
+  .primary { background: var(--text); color: #fff; border-color: var(--text); }
+  .primary:hover { background: #000; border-color: #000; }
+  .sheet.done .primary { background: #2e9e5b; border-color: #2e9e5b; }
+
+  /* Edit mode: default order, no checkboxes, no subtasks; tap a row to edit it */
+  .pen {
+    display: none;
+    flex: none;
+    align-self: center;
+    margin: 0 12px;
+    padding: 4px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: #cfcbc3;
+  }
+  .pen svg { display: block; width: 14px; height: 14px; }
+  #list.editing .fold, #list.editing .subs { display: none; }
+  #list.editing .ctl > :not(.move) { display: none; }
+  #list.editing input[type="checkbox"] { display: none; }
+  #list.editing .pen { display: block; }
+  #list.editing > li[data-archived] { display: flex; opacity: 0.55; }
+  .form { text-align: left; }
+  .form label {
+    display: block;
+    padding: 0;
+    margin: 0 0 14px;
+    gap: 0;
+    user-select: auto;
+    cursor: default;
+  }
+  .form label:hover { background: transparent; }
+  .f span {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .f input[type="text"], .f input[type="number"], .f textarea {
+    width: 100%;
+    padding: 9px 12px;
+    font: inherit;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    outline: none;
+  }
+  .f textarea { min-height: 76px; line-height: 1.4; resize: vertical; }
+  .f input:focus, .f textarea:focus { border-color: var(--accent); }
+  .f.check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+  .f.check span { margin: 0; font-size: 14px; color: var(--text); }
+  .form .m-actions { margin-top: 20px; }
+  .danger { color: #c0392b; margin-right: auto; }
+  .danger:hover { border-color: #e6b3ad; }
+
+  /* Sprint */
+  #list.picking .ctl { display: none; }
+  #list.picking > li.picked {
+    background: #eef3ff;
+    box-shadow: inset 3px 0 0 var(--accent), 0 -1px 0 var(--line);
+  }
+  #list.picking > li.picked label:hover { background: transparent; }
+  #list.sprint > li:not(.picked) { display: none; }
+
+  /* To-dos */
+  #add {
+    width: 100%;
+    margin: 0 0 12px;
+    padding: 11px 16px;
+    font: inherit;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    outline: none;
+  }
+  #add::placeholder { color: var(--muted); }
+  #add:focus { border-color: var(--accent); }
+  #todos:empty { display: none; }
+  #todos li {
+    display: flex;
+    align-items: flex-start;
+  }
+  #todos .name { overflow-wrap: anywhere; }
+  .del {
+    display: none;
+    flex: none;
+    align-self: stretch;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--muted);
+  }
+  .del:hover { color: var(--text); background: #fbfaf8; }
+  .del svg { display: block; width: 14px; height: 14px; }
+  #todos li:has(:checked) .del { display: block; }
+</style>
+</head>
+<body>
+<div class="head">
+  <div class="week" id="week"></div>
+  <div class="tabs" id="tabs">
+    <button type="button" class="on" data-pane="0">List</button>
+    <button type="button" data-pane="1">To-dos</button>
+  </div>
+</div>
+<main id="main">
+<section>
+  <header>
+    <div class="top">
+      <h1>The List</h1>
+      <span id="count"></span>
+    </div>
+    <div class="tools">
+      <button id="sprint" type="button">Sprint</button>
+      <button id="go" type="button" hidden>Go</button>
+      <button id="cancel" type="button" hidden>Cancel</button>
+      <button id="exit" type="button" hidden>Exit</button>
+      <button id="edit" type="button">Edit</button>
+      <button id="add-item" type="button" hidden>Add</button>
+      <button id="done" type="button" hidden>Done</button>
+      <button id="archive" type="button">Archive</button>
+      <button id="sort" type="button">Sort</button>
+      <button id="clear" type="button">Clear</button>
+    </div>
+  </header>
+  <div class="bar" id="progress"><div id="bar"></div></div>
+
+  <ul id="list"></ul>
+</section>
+
+<section>
+  <header>
+    <h1>To-dos</h1>
+  </header>
+  <input id="add" type="text" placeholder="Add" autocomplete="off" enterkeyhint="done">
+  <ul id="todos"></ul>
+</section>
+</main>
+
+<div id="editor" class="overlay" hidden>
+  <div class="sheet form">
+    <label class="f"><span>Name</span><input id="e-name" type="text" autocomplete="off"></label>
+    <label class="f"><span>Detail</span><input id="e-detail" type="text" autocomplete="off"></label>
+    <label class="f"><span>Subtasks, one per line</span><textarea id="e-subs" rows="3" autocomplete="off"></textarea></label>
+    <label class="f"><span>Timer, minutes</span><input id="e-minutes" type="number" min="1" step="1" inputmode="numeric"></label>
+    <label class="f check"><input id="e-counter" type="checkbox"><span>Weekly counter</span></label>
+    <label class="f check"><input id="e-archived" type="checkbox"><span>Archived</span></label>
+    <div class="m-actions">
+      <button id="e-delete" type="button" class="danger">Delete</button>
+      <button id="e-cancel" type="button">Cancel</button>
+      <button id="e-save" type="button" class="primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal" class="overlay" hidden>
+  <div class="sheet">
+    <div class="m-name" id="m-name"></div>
+    <div class="m-time" id="m-time"></div>
+    <div class="bar"><div id="m-bar"></div></div>
+    <div class="m-actions">
+      <button id="m-pause" type="button">Pause</button>
+      <button id="m-complete" type="button" class="primary" hidden>Complete</button>
+      <button id="m-close" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // State lives on the server. Loaded once, written through on change.
+  const store = {
+    data: {},
+    get(k) { return k in this.data ? this.data[k] : null; },
+    set(k, v) {
+      this.data[k] = v;
+      fetch('/api/state/' + k, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(v) });
+    },
+    del(k) {
+      delete this.data[k];
+      fetch('/api/state/' + k, { method: 'DELETE' });
+    },
+  };
+
+  // Week strip: Monday through today, filled.
+  function renderWeek() {
+    const today = (new Date().getDay() + 6) % 7;  // Monday = 0
+    document.getElementById('week').innerHTML = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+      .map((d, i) => '<span' + (i <= today ? ' class="on"' : '') + '>' + d + '</span>').join('');
+  }
+  renderWeek();
+  setInterval(renderWeek, 60 * 1000);
+  document.addEventListener('visibilitychange', renderWeek);
+
+  // Mobile panes: the tabs scroll the main strip, and scrolling the strip updates the tabs.
+  const main = document.getElementById('main');
+  const tabs = document.getElementById('tabs');
+  function showTab(i) {
+    Array.from(tabs.children).forEach((b, j) => b.classList.toggle('on', j === i));
+  }
+  tabs.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    main.scrollTo({ left: Number(b.dataset.pane) * main.clientWidth, behavior: 'smooth' });
+  });
+  main.addEventListener('scroll', () => {
+    if (main.clientWidth) showTab(Math.round(main.scrollLeft / main.clientWidth));
+  }, { passive: true });
+
+  (async () => {
+  store.data = await (await fetch('/api/state')).json();
+
+  const KEY = 'the-list';
+  const ITEMS_KEY = 'the-list-items';
+  const OPEN_KEY = 'the-list-open';
+  const list = document.getElementById('list');
+  const count = document.getElementById('count');
+  const nameOf = li => li.querySelector(':scope > label .name').textContent;
+  const box = li => li.querySelector(':scope > label input');
+  const rowOf = el => el.closest('#list > li');
+  const editing = () => list.classList.contains('editing');
+
+  // The items themselves live in the database; add them in edit mode.
+  // Their order there is the default order: what Clear restores and what edit mode shows.
+  let items = store.get(ITEMS_KEY);
+  if (!Array.isArray(items)) items = [];
+  function saveItems() { store.set(ITEMS_KEY, items); }
+
+  // Which rows have their subtasks showing. Kept across days.
+  let open = new Set(Array.isArray(store.get(OPEN_KEY)) ? store.get(OPEN_KEY) : []);
+  function saveOpen() { store.set(OPEN_KEY, Array.from(open)); }
+
+  // Rows, in default order. Each item is identified by its name, so state
+  // keyed by name survives reordering, adding, and removing.
+  let original = [];
+  let byName = new Map();
+  let active = [];
+
+  // Today's state: the list-mode order, what's checked, and which subtasks are checked.
+  // Never written from edit mode, so edit mode can't disturb it.
+  function save() {
+    const order = Array.from(list.children).map(nameOf);
+    const checked = original.filter(li => box(li).checked).map(nameOf);
+    const subs = {};
+    for (const li of original) {
+      const done = Array.from(li.querySelectorAll('.sub')).filter(s => box(s).checked).map(nameOf);
+      if (done.length) subs[nameOf(li)] = done;
+    }
+    store.set(KEY, { order, checked, subs });
+  }
+
+  function applyChecks() {
+    const s = store.get(KEY);
+    if (!s) return;
+    for (const name of s.checked || []) {
+      const li = byName.get(name);
+      if (li) box(li).checked = true;
+    }
+    for (const [name, done] of Object.entries(s.subs || {})) {
+      const li = byName.get(name);
+      if (!li) continue;
+      for (const sub of li.querySelectorAll('.sub')) if (done.includes(nameOf(sub))) box(sub).checked = true;
+      renderSubCount(li);
+    }
+  }
+
+  // The list-mode order: the saved order, then anything new in default order.
+  function applyOrder() {
+    const s = store.get(KEY);
+    const names = s && Array.isArray(s.order) ? s.order : [];
+    const seen = new Set();
+    const ordered = [];
+    for (const name of names) {
+      const li = byName.get(name);
+      if (li && !seen.has(name)) { ordered.push(li); seen.add(name); }
+    }
+    for (const li of original) if (!seen.has(nameOf(li))) ordered.push(li);
+    list.append(...ordered);
+  }
+
+  const progress = document.getElementById('progress');
+  const exitBtn = document.getElementById('exit');
+  let scope = () => active;  // sprint narrows this to the picked items
+  function update() {
+    const rows = scope();
+    let n = 0;
+    for (const li of rows) if (box(li).checked) n++;
+    count.textContent = n + ' / ' + rows.length;
+    const full = rows.length > 0 && n === rows.length;
+    count.classList.toggle('full', full);
+    progress.classList.toggle('full', full);
+    progress.firstElementChild.style.width = (rows.length ? 100 * n / rows.length : 0) + '%';
+    if (list.classList.contains('sprint')) exitBtn.textContent = full ? 'Finish' : 'Exit';
+  }
+
+  // Sounds and haptics
+  let ac = null;
+  function audio() {
+    if (!ac) { const C = window.AudioContext || window.webkitAudioContext; if (C) ac = new C(); }
+    if (ac && ac.state === 'suspended') ac.resume();
+    return ac;
+  }
+  function tone(freq, at, dur, gain) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(gain, at + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(g).connect(ac.destination);
+    o.start(at);
+    o.stop(at + dur);
+  }
+  function tickSound() { if (audio()) tone(880, ac.currentTime, 0.09, 0.05); }
+  function chime() {
+    if (!audio()) return;
+    const t = ac.currentTime;
+    tone(660, t, 0.35, 0.12); tone(880, t + 0.15, 0.35, 0.12); tone(1320, t + 0.3, 0.7, 0.12);
+  }
+  function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+
+  // A real completion: check, reset punts, and make it feel like something.
+  function complete(li) {
+    box(li).checked = true;
+    delete punts[nameOf(li)];
+    savePunts();
+    renderPunt(li);
+    li.classList.remove('flash');
+    void li.offsetWidth;
+    li.classList.add('flash');
+    tickSound();
+    buzz(20);
+    update();
+    save();
+  }
+
+  // Counters: a per-item tally, kept across days, untouched by Clear.
+  const COUNT_KEY = 'the-list-counts';
+  let counts = store.get(COUNT_KEY) || {};
+  function saveCounts() { store.set(COUNT_KEY, counts); }
+  function renderCount(li) {
+    const n = counts[nameOf(li)] || 0;
+    const c = li.querySelector('.counter');
+    c.querySelector('.tick').textContent = n + ' +';
+    c.classList.toggle('has', n > 0);
+  }
+
+  // Punts: counted per item, kept across days, reset by a real completion.
+  const PUNT_KEY = 'the-list-punts';
+  let punts = store.get(PUNT_KEY) || {};
+  function savePunts() { store.set(PUNT_KEY, punts); }
+  function renderPunt(li) {
+    const n = punts[nameOf(li)] || 0;
+    let el = li.querySelector('.punted');
+    if (!n) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'punted';
+      li.querySelector(':scope > label > div').append(el);
+    }
+    el.textContent = n === 1 ? 'Punted once' : 'Punted ' + n + ' times';
+  }
+
+  // Subtasks: their checks live in today's state and don't touch the parent.
+  function renderSubCount(li) {
+    const sc = li.querySelector(':scope > .fold .sc');
+    if (!sc) return;
+    const subs = Array.from(li.querySelectorAll('.sub'));
+    const n = subs.filter(s => box(s).checked).length;
+    sc.textContent = n + '/' + subs.length;
+    sc.classList.toggle('full', subs.length > 0 && n === subs.length);
+  }
+  function subRow(name) {
+    const li = document.createElement('li');
+    li.className = 'sub';
+    li.innerHTML = '<label><input type="checkbox"><div class="name"></div></label>';
+    li.querySelector('.name').textContent = name;
+    return li;
+  }
+
+  // Drag to reorder
+  const GRIP = '<svg viewBox="0 0 10 16" fill="currentColor"><circle cx="2.5" cy="3" r="1.5"/><circle cx="7.5" cy="3" r="1.5"/><circle cx="2.5" cy="8" r="1.5"/><circle cx="7.5" cy="8" r="1.5"/><circle cx="2.5" cy="13" r="1.5"/><circle cx="7.5" cy="13" r="1.5"/></svg>';
+  function grip() {
+    const g = document.createElement('span');
+    g.className = 'grip';
+    g.draggable = true;
+    g.innerHTML = GRIP;
+    return g;
+  }
+  function draggable(ul, onDrop) {
+    let dragging = null;
+    ul.addEventListener('dragstart', e => {
+      const g = e.target.closest('.grip');
+      if (!g) { e.preventDefault(); return; }
+      dragging = g.closest('li');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', nameOf(dragging));
+      const r = dragging.getBoundingClientRect();
+      e.dataTransfer.setDragImage(dragging, e.clientX - r.left, e.clientY - r.top);
+      setTimeout(() => dragging && dragging.classList.add('dragging'), 0);
+    });
+    ul.addEventListener('dragover', e => {
+      if (!dragging) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const over = Array.from(ul.children).find(li => li.contains(e.target));
+      if (!over || over === dragging) return;
+      const r = over.getBoundingClientRect();
+      if (e.clientY > r.top + r.height / 2) over.after(dragging); else over.before(dragging);
+    });
+    ul.addEventListener('drop', e => { if (dragging) e.preventDefault(); });
+    ul.addEventListener('dragend', () => {
+      if (!dragging) return;
+      dragging.classList.remove('dragging');
+      dragging = null;
+      onDrop();
+    });
+  }
+
+  const X = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 2l10 10M12 2L2 12"/></svg>';
+  const TOP = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h8M7 12V5M4 8l3-3 3 3"/></svg>';
+  const BOTTOM = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h8M7 2v7M4 6l3 3 3-3"/></svg>';
+  const CLOCK = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="5.5"/><path d="M7 4v3l2 1.5"/></svg>';
+  const PEN = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2l2 2-7 7H3V9z"/></svg>';
+  const CHEV = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5l3 3 3-3"/></svg>';
+  function btn(cls, html) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = cls;
+    b.innerHTML = html;
+    return b;
+  }
+
+  function buildRow(it) {
+    const li = document.createElement('li');
+    if (it.counter) li.setAttribute('data-counter', '');
+    if (it.minutes) li.dataset.minutes = it.minutes;
+    if (it.archived) li.setAttribute('data-archived', '');
+    li.innerHTML = '<label><input type="checkbox"><div><div class="name"></div><div class="detail"></div></div></label>';
+    li.querySelector('.name').textContent = it.name;
+    li.querySelector('.detail').textContent = it.detail || '';
+    li.prepend(grip());
+    const ctl = document.createElement('div');
+    ctl.className = 'ctl';
+    if (it.counter) {
+      const c = document.createElement('div');
+      c.className = 'counter';
+      c.append(btn('tick', ''), btn('cclear', X));
+      ctl.append(c);
+    }
+    if (it.minutes) ctl.append(btn('tmr', CLOCK));
+    ctl.append(btn('move top', TOP), btn('move bottom', BOTTOM), btn('punt', 'Punt'));
+    li.append(ctl);
+    const subs = Array.isArray(it.subs) ? it.subs : [];
+    if (subs.length) {
+      li.append(btn('fold', '<span class="sc"></span>' + CHEV));
+      const ul = document.createElement('ul');
+      ul.className = 'subs';
+      for (const s of subs) ul.append(subRow(s));
+      li.append(ul);
+      if (open.has(it.name)) li.classList.add('open');
+    }
+    li.append(btn('pen', PEN));
+    if (it.counter) renderCount(li);
+    renderPunt(li);
+    renderSubCount(li);
+    return li;
+  }
+
+  // Render everything from items, then re-apply saved checks, order, and sprint picks.
+  function rebuild() {
+    if (timer.li) closeModal();
+    list.innerHTML = '';
+    original = items.map(buildRow);
+    byName = new Map(original.map(li => [nameOf(li), li]));
+    active = original.filter(li => !li.hasAttribute('data-archived'));
+    list.append(...original);
+    applyChecks();
+    if (!editing()) applyOrder();  // edit mode always shows the default order
+    const sp = store.get(SPRINT_KEY);
+    if (Array.isArray(sp)) for (const n of sp) { const li = byName.get(n); if (li) li.classList.add('picked'); }
+    if (list.classList.contains('sprint') && !picked().length) mode('normal'); else update();
+  }
+
+  // In edit mode the rows on screen are the default order. Save it, leaving today's order alone.
+  function saveDefaultOrder() {
+    const order = Array.from(list.children).map(nameOf);
+    items.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
+    saveItems();
+    original = items.map(it => byName.get(it.name));
+    active = original.filter(li => !li.hasAttribute('data-archived'));
+  }
+
+  draggable(list, () => {
+    if (editing()) saveDefaultOrder(); else save();
+  });
+
+  document.getElementById('archive').addEventListener('click', e => {
+    list.classList.toggle('archive');
+    e.currentTarget.classList.toggle('on', list.classList.contains('archive'));
+  });
+
+  list.addEventListener('change', e => {
+    const sub = e.target.closest('.sub');
+    if (sub) {
+      renderSubCount(rowOf(sub));
+      if (e.target.checked) tickSound();
+      save();
+      return;
+    }
+    const li = rowOf(e.target);
+    if (e.target.checked) { complete(li); return; }
+    update();
+    save();
+  });
+
+  list.addEventListener('click', e => {
+    const fold = e.target.closest('.fold');
+    if (fold && !editing()) {
+      const li = rowOf(fold);
+      const on = li.classList.toggle('open');
+      if (on) open.add(nameOf(li)); else open.delete(nameOf(li));
+      saveOpen();
+      return;
+    }
+    if (list.classList.contains('picking')) {
+      const label = e.target.closest('label');
+      if (!label) return;
+      e.preventDefault();
+      rowOf(label).classList.toggle('picked');
+      updateGo();
+      return;
+    }
+    if (editing()) {
+      const li = rowOf(e.target);
+      if (!li || e.target.closest('.grip')) return;
+      const mv = e.target.closest('.move');
+      if (mv) {
+        if (mv.classList.contains('top')) list.prepend(li); else list.append(li);
+        saveDefaultOrder();
+        return;
+      }
+      if (e.target.closest('label')) e.preventDefault();
+      openEditor(items.find(it => it.name === nameOf(li)));
+      return;
+    }
+    const b = e.target.closest('button');
+    if (!b) return;
+    const li = rowOf(b);
+    const name = nameOf(li);
+    if (b.classList.contains('tmr')) {
+      startTimer(li);
+    } else if (b.classList.contains('punt')) {
+      punts[name] = (punts[name] || 0) + 1;
+      savePunts();
+      box(li).checked = true;
+      renderPunt(li);
+      update();
+      save();
+    } else if (b.classList.contains('tick')) {
+      counts[name] = (counts[name] || 0) + 1;
+      saveCounts();
+      renderCount(li);
+    } else if (b.classList.contains('cclear')) {
+      delete counts[name];
+      saveCounts();
+      renderCount(li);
+    } else if (b.classList.contains('top')) {
+      list.prepend(li);
+      save();
+    } else if (b.classList.contains('bottom')) {
+      // Bottom of the unchecked items: after the last unchecked visible row.
+      const todo = Array.from(list.children).filter(x =>
+        x !== li && !x.hasAttribute('data-archived') && !box(x).checked);
+      if (todo.length) todo[todo.length - 1].after(li); else list.append(li);
+      save();
+    }
+  });
+
+  document.getElementById('sort').addEventListener('click', () => {
+    const rows = Array.from(list.children);
+    const done = rows.filter(li => box(li).checked);
+    const todo = rows.filter(li => !box(li).checked);
+    list.append(...todo, ...done);
+    save();
+  });
+
+  document.getElementById('clear').addEventListener('click', () => {
+    for (const li of original) box(li).checked = false;
+    for (const b of list.querySelectorAll('.sub input')) b.checked = false;
+    for (const li of original) renderSubCount(li);
+    list.append(...original);
+    store.del(KEY);
+    update();
+  });
+
+  // Timer: one at a time, launched from a row, lives in the modal.
+  const modal = document.getElementById('modal');
+  const sheet = modal.querySelector('.sheet');
+  const mName = document.getElementById('m-name');
+  const mTime = document.getElementById('m-time');
+  const mBar = document.getElementById('m-bar');
+  const mPause = document.getElementById('m-pause');
+  const mComplete = document.getElementById('m-complete');
+  const mClose = document.getElementById('m-close');
+  const timer = { li: null, total: 0, remaining: 0, endAt: 0, running: false, done: false, iv: null };
+
+  function fmt(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+  function startTimer(li) {
+    stopTimer();
+    timer.li = li;
+    timer.total = Number(li.dataset.minutes) * 60000;
+    timer.remaining = timer.total;
+    timer.endAt = Date.now() + timer.total;
+    timer.running = true;
+    timer.done = false;
+    timer.iv = setInterval(tickTimer, 250);
+    audio();  // unlock sound while we still have a user gesture
+    openModal();
+    tickTimer();
+  }
+  function stopTimer() {
+    if (timer.iv) clearInterval(timer.iv);
+    if (timer.li) {
+      const b = timer.li.querySelector('.tmr');
+      b.classList.remove('live');
+      b.innerHTML = CLOCK;
+    }
+    timer.iv = null;
+    timer.li = null;
+    timer.running = false;
+    timer.done = false;
+  }
+  function tickTimer() {
+    if (!timer.li) return;
+    if (timer.running) timer.remaining = timer.endAt - Date.now();
+    if (timer.running && timer.remaining <= 0) { finishTimer(); return; }
+    const b = timer.li.querySelector('.tmr');
+    b.classList.add('live');
+    b.textContent = fmt(timer.remaining);
+    renderModal();
+  }
+  function finishTimer() {
+    timer.running = false;
+    timer.done = true;
+    timer.remaining = 0;
+    clearInterval(timer.iv);
+    timer.iv = null;
+    const b = timer.li.querySelector('.tmr');
+    b.classList.add('live');
+    b.textContent = 'Done';
+    chime();
+    buzz([60, 40, 60]);
+    openModal();
+  }
+  function renderModal() {
+    if (modal.hidden || !timer.li) return;
+    mName.textContent = nameOf(timer.li);
+    mTime.textContent = timer.done ? 'Done' : fmt(timer.remaining);
+    mBar.style.width = (100 * (1 - timer.remaining / timer.total)) + '%';
+    sheet.classList.toggle('done', timer.done);
+    mPause.hidden = timer.done;
+    mPause.textContent = timer.running ? 'Pause' : 'Resume';
+    mComplete.hidden = !timer.done;
+  }
+  function openModal() { modal.hidden = false; renderModal(); }
+  function closeModal() {
+    modal.hidden = true;
+    stopTimer();
+  }
+  mPause.addEventListener('click', () => {
+    if (timer.running) { timer.remaining = timer.endAt - Date.now(); timer.running = false; }
+    else { timer.endAt = Date.now() + timer.remaining; timer.running = true; }
+    tickTimer();
+  });
+  mComplete.addEventListener('click', () => {
+    const li = timer.li;
+    stopTimer();
+    modal.hidden = true;
+    complete(li);
+  });
+  mClose.addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!modal.hidden) closeModal();
+    if (!editor.hidden) closeEditor();
+  });
+
+  // Sprint: pick a few items, Go, and the list narrows to just those.
+  const SPRINT_KEY = 'the-list-sprint';
+  const sprintBtn = document.getElementById('sprint');
+  const goBtn = document.getElementById('go');
+  const cancelBtn = document.getElementById('cancel');
+  const archiveBtn = document.getElementById('archive');
+  const sortBtn = document.getElementById('sort');
+  const clearBtn = document.getElementById('clear');
+  const editBtn = document.getElementById('edit');
+  const addItemBtn = document.getElementById('add-item');
+  const doneBtn = document.getElementById('done');
+  const picked = () => Array.from(list.children).filter(li => li.classList.contains('picked'));
+  function unpick() { for (const li of picked()) li.classList.remove('picked'); }
+  function mode(m) {  // 'normal' | 'picking' | 'sprint' | 'editing'
+    const wasEditing = editing();
+    list.classList.toggle('picking', m === 'picking');
+    list.classList.toggle('sprint', m === 'sprint');
+    list.classList.toggle('editing', m === 'editing');
+    list.classList.remove('archive');
+    archiveBtn.classList.remove('on');
+    sprintBtn.hidden = editBtn.hidden = archiveBtn.hidden = sortBtn.hidden = clearBtn.hidden = m !== 'normal';
+    goBtn.hidden = cancelBtn.hidden = m !== 'picking';
+    exitBtn.hidden = m !== 'sprint';
+    addItemBtn.hidden = doneBtn.hidden = m !== 'editing';
+    count.hidden = progress.hidden = m === 'editing';
+    // Edit mode shows the default order; leaving it puts today's order back.
+    if (m === 'editing') list.append(...original);
+    else if (wasEditing) applyOrder();
+    scope = m === 'sprint' ? picked : () => active;
+    update();
+  }
+  function updateGo() {
+    const n = picked().length;
+    goBtn.textContent = n ? 'Go · ' + n : 'Go';
+    goBtn.disabled = !n;
+  }
+  sprintBtn.addEventListener('click', () => { mode('picking'); updateGo(); });
+  cancelBtn.addEventListener('click', () => { unpick(); mode('normal'); });
+  goBtn.addEventListener('click', () => {
+    if (!picked().length) return;
+    store.set(SPRINT_KEY, picked().map(nameOf));
+    mode('sprint');
+  });
+  exitBtn.addEventListener('click', () => { unpick(); store.del(SPRINT_KEY); mode('normal'); });
+
+  // Edit mode: add, change, remove, and set the default order of items.
+  const editor = document.getElementById('editor');
+  const eName = document.getElementById('e-name');
+  const eDetail = document.getElementById('e-detail');
+  const eSubs = document.getElementById('e-subs');
+  const eMinutes = document.getElementById('e-minutes');
+  const eCounter = document.getElementById('e-counter');
+  const eArchived = document.getElementById('e-archived');
+  const eDelete = document.getElementById('e-delete');
+  const eCancel = document.getElementById('e-cancel');
+  const eSave = document.getElementById('e-save');
+  let editingItem = null;  // null while adding a new one
+
+  function openEditor(it) {
+    editingItem = it || null;
+    eName.value = it ? it.name : '';
+    eDetail.value = it ? it.detail || '' : '';
+    eSubs.value = it && Array.isArray(it.subs) ? it.subs.join('\n') : '';
+    eMinutes.value = it && it.minutes ? it.minutes : '';
+    eCounter.checked = !!(it && it.counter);
+    eArchived.checked = !!(it && it.archived);
+    eDelete.hidden = !it;
+    editor.hidden = false;
+    eName.focus();
+  }
+  function closeEditor() { editor.hidden = true; editingItem = null; }
+
+  // State is keyed by name, so a rename or delete has to touch every key.
+  function renameEverywhere(from, to) {
+    const s = store.get(KEY);
+    if (s) {
+      s.order = (s.order || []).map(n => n === from ? to : n);
+      s.checked = (s.checked || []).map(n => n === from ? to : n);
+      if (s.subs && from in s.subs) { s.subs[to] = s.subs[from]; delete s.subs[from]; }
+      store.set(KEY, s);
+    }
+    if (from in punts) { punts[to] = punts[from]; delete punts[from]; savePunts(); }
+    if (from in counts) { counts[to] = counts[from]; delete counts[from]; saveCounts(); }
+    if (open.has(from)) { open.delete(from); open.add(to); saveOpen(); }
+    const sp = store.get(SPRINT_KEY);
+    if (Array.isArray(sp) && sp.includes(from)) store.set(SPRINT_KEY, sp.map(n => n === from ? to : n));
+  }
+  function forgetEverywhere(name) {
+    const s = store.get(KEY);
+    if (s) {
+      s.order = (s.order || []).filter(n => n !== name);
+      s.checked = (s.checked || []).filter(n => n !== name);
+      if (s.subs) delete s.subs[name];
+      store.set(KEY, s);
+    }
+    if (name in punts) { delete punts[name]; savePunts(); }
+    if (name in counts) { delete counts[name]; saveCounts(); }
+    if (open.has(name)) { open.delete(name); saveOpen(); }
+    const sp = store.get(SPRINT_KEY);
+    if (Array.isArray(sp) && sp.includes(name)) store.set(SPRINT_KEY, sp.filter(n => n !== name));
+  }
+
+  editBtn.addEventListener('click', () => mode('editing'));
+  doneBtn.addEventListener('click', () => mode('normal'));
+  addItemBtn.addEventListener('click', () => openEditor(null));
+  eSave.addEventListener('click', () => {
+    const name = eName.value.trim();
+    if (!name) { eName.focus(); return; }
+    if (items.some(it => it !== editingItem && it.name === name)) { eName.focus(); eName.select(); return; }
+    const minutes = Number(eMinutes.value) > 0 ? Number(eMinutes.value) : null;
+    const subs = Array.from(new Set(eSubs.value.split('\n').map(s => s.trim()).filter(Boolean)));
+    const next = { name, detail: eDetail.value.trim(), counter: eCounter.checked, minutes, archived: eArchived.checked, subs };
+    if (editingItem) {
+      if (editingItem.name !== name) renameEverywhere(editingItem.name, name);
+      Object.assign(editingItem, next);
+    } else {
+      items.push(next);
+    }
+    saveItems();
+    closeEditor();
+    rebuild();
+  });
+  eDelete.addEventListener('click', () => {
+    if (!editingItem) return;
+    forgetEverywhere(editingItem.name);
+    items = items.filter(it => it !== editingItem);
+    saveItems();
+    closeEditor();
+    rebuild();
+  });
+  eCancel.addEventListener('click', closeEditor);
+  editor.addEventListener('click', e => { if (e.target === editor) closeEditor(); });
+  editor.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') eSave.click();
+  });
+
+  rebuild();
+  if (picked().length) mode('sprint');
+
+  // To-dos
+  const TODO_KEY = 'the-list-todos';
+  const todos = document.getElementById('todos');
+  const add = document.getElementById('add');
+
+  function setPunted(btn, on) {
+    btn.classList.toggle('on', on);
+    btn.textContent = on ? 'Punted' : 'Punt';
+  }
+
+  function todoRow(text, done, punted) {
+    const li = document.createElement('li');
+    const label = document.createElement('label');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = !!done;
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = text;
+    label.append(box, name);
+    const punt = document.createElement('button');
+    punt.type = 'button';
+    punt.className = 'punt';
+    setPunted(punt, !!punted);
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'del';
+    del.innerHTML = X;
+    li.append(grip(), label, punt, del);
+    return li;
+  }
+
+  function saveTodos() {
+    const rows = Array.from(todos.children).map(li => ({
+      text: li.querySelector('.name').textContent,
+      done: li.querySelector('input').checked,
+      punted: li.querySelector('.punt').classList.contains('on')
+    }));
+    store.set(TODO_KEY, rows);
+  }
+
+  function loadTodos() {
+    const rows = store.get(TODO_KEY);
+    if (!Array.isArray(rows)) return;
+    for (const t of rows) if (t && typeof t.text === 'string') todos.append(todoRow(t.text, t.done, t.punted));
+  }
+
+  add.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const text = add.value.trim();
+    if (!text) return;
+    todos.append(todoRow(text, false, false));
+    add.value = '';
+    saveTodos();
+  });
+
+  todos.addEventListener('change', saveTodos);
+  todos.addEventListener('click', e => {
+    const punt = e.target.closest('.punt');
+    if (punt) {
+      setPunted(punt, !punt.classList.contains('on'));
+      saveTodos();
+      return;
+    }
+    const del = e.target.closest('.del');
+    if (!del) return;
+    del.closest('li').remove();
+    saveTodos();
+  });
+
+  loadTodos();
+  draggable(todos, saveTodos);
+  })();
+</script>
+</body>
+</html>
