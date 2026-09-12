@@ -26,6 +26,8 @@ PUT    /api/state/<key>   <- any JSON, stored as-is
 DELETE /api/state/<key>
 ```
 
-Keys: `the-list-items` (the items and their default order, subtasks, timers, counters, archived),
+Keys: `the-list-items` (the items and their default order, subtasks, timers, counters, archived,
+and targets: `target: {unit, per, dir}` plus `targets: [{on, value}]`, the dated history of target
+changes with the current target last; times of day are unit `time` in minutes after midnight),
 `the-list` (today's order, checks, and checked subtasks; Clear deletes it), `the-list-open`
 (rows with subtasks expanded), `the-list-counts`, `the-list-punts`, `the-list-sprint`, `the-list-todos`.

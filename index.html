@@ -419,7 +419,10 @@
     color: var(--muted);
     margin-bottom: 4px;
   }
-  .f input[type="text"], .f input[type="number"], .f textarea {
+  .form .f { margin: 0 0 14px; }
+  .trow { display: flex; gap: 8px; }
+  .trow > * { flex: 1; min-width: 0; }
+  .f input[type="text"], .f input[type="number"], .f input[type="time"], .f select, .f textarea {
     width: 100%;
     padding: 9px 12px;
     font: inherit;
@@ -430,7 +433,9 @@
     outline: none;
   }
   .f textarea { min-height: 76px; line-height: 1.4; resize: vertical; }
-  .f input:focus, .f textarea:focus { border-color: var(--accent); }
+  .f input:focus, .f select:focus, .f textarea:focus { border-color: var(--accent); }
+  .f select { appearance: none; -webkit-appearance: none; background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14' fill='none' stroke='%238a867e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 5.5l3 3 3-3'/%3E%3C/svg%3E") no-repeat right 10px center / 14px; padding-right: 30px; }
+  .f select:disabled { opacity: 0.45; }
   .f.check {
     display: flex;
     align-items: center;
@@ -441,6 +446,80 @@
   .form .m-actions { margin-top: 20px; }
   .danger { color: #c0392b; margin-right: auto; }
   .danger:hover { border-color: #e6b3ad; }
+
+  /* Targets: tap a quantitative row's detail to step the target and see its history */
+  #list:not(.editing):not(.picking) > li[data-target] > label .detail {
+    text-decoration: underline dotted #d6d3cc;
+    text-underline-offset: 3px;
+  }
+  .hist { max-width: 400px; min-width: 0; }
+  .h-cur {
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    margin: 10px 0 2px;
+  }
+  .h-sub { color: var(--muted); font-size: 13px; min-height: 18px; }
+  .h-step {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin: 14px 0 18px;
+  }
+  .h-step button {
+    width: 44px;
+    height: 40px;
+    padding: 0;
+    font-size: 20px;
+    line-height: 1;
+    border-radius: 10px;
+  }
+  .h-step input {
+    width: 120px;
+    height: 40px;
+    padding: 0 10px;
+    font: inherit;
+    font-size: 17px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    outline: none;
+  }
+  .h-step input:focus { border-color: var(--accent); }
+  .h-step input::-webkit-outer-spin-button, .h-step input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .h-step input[type="number"] { -moz-appearance: textfield; }
+  #h-chart { display: block; width: 100%; height: auto; }
+  #h-chart .grid { stroke: var(--line); stroke-width: 1; }
+  #h-chart .tick { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  #h-chart .area { fill: var(--accent); opacity: 0.08; }
+  #h-chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  #h-chart .dot { fill: var(--accent); stroke: var(--card); stroke-width: 2; }
+  #h-chart .hit { fill: transparent; }
+  #h-chart .hit:hover + .dot, #h-chart .dot.hot { r: 6; }
+  #h-chart .tip { fill: var(--text); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .h-log {
+    margin: 14px 0 0;
+    text-align: left;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    max-height: 168px;
+    overflow-y: auto;
+  }
+  .h-log li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 12px;
+  }
+  .h-log .d { color: var(--muted); }
+  .h-log .was { color: var(--muted); }
+  .hist .m-actions { margin-top: 18px; }
 
   /* Sprint */
   #list.picking .ctl { display: none; }
@@ -532,6 +611,37 @@
   <div class="sheet form">
     <label class="f"><span>Name</span><input id="e-name" type="text" autocomplete="off"></label>
     <label class="f"><span>Detail</span><input id="e-detail" type="text" autocomplete="off"></label>
+    <div class="f"><span>Target</span>
+      <div class="trow">
+        <input id="e-target" type="number" inputmode="decimal" step="any" placeholder="none">
+        <select id="e-unit">
+          <option value="">no unit</option>
+          <option value="g">g</option>
+          <option value="mg">mg</option>
+          <option value="kcal">kcal</option>
+          <option value="oz">oz</option>
+          <option value="hr">hr</option>
+          <option value="min">min</option>
+          <option value="steps">steps</option>
+          <option value="x">times (x)</option>
+          <option value="time">time of day</option>
+        </select>
+      </div>
+    </div>
+    <div class="f"><span>Per, direction</span>
+      <div class="trow">
+        <select id="e-per">
+          <option value="day">per day</option>
+          <option value="week">per week</option>
+          <option value="">no period</option>
+        </select>
+        <select id="e-dir">
+          <option value="max">at most, by</option>
+          <option value="min">at least</option>
+          <option value="at">exactly</option>
+        </select>
+      </div>
+    </div>
     <label class="f"><span>Subtasks, one per line</span><textarea id="e-subs" rows="3" autocomplete="off"></textarea></label>
     <label class="f"><span>Timer, minutes</span><input id="e-minutes" type="number" min="1" step="1" inputmode="numeric"></label>
     <label class="f check"><input id="e-counter" type="checkbox"><span>Weekly counter</span></label>
@@ -540,6 +650,24 @@
       <button id="e-delete" type="button" class="danger">Delete</button>
       <button id="e-cancel" type="button">Cancel</button>
       <button id="e-save" type="button" class="primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="hist" class="overlay" hidden>
+  <div class="sheet hist">
+    <div class="m-name" id="h-name"></div>
+    <div class="h-cur" id="h-cur"></div>
+    <div class="h-sub" id="h-sub"></div>
+    <div class="h-step">
+      <button id="h-minus" type="button" aria-label="Lower">&minus;</button>
+      <input id="h-val" type="number" inputmode="decimal" step="any">
+      <button id="h-plus" type="button" aria-label="Raise">+</button>
+    </div>
+    <svg id="h-chart" viewBox="0 0 352 160" role="img"></svg>
+    <ul class="h-log" id="h-log"></ul>
+    <div class="m-actions">
+      <button id="h-close" type="button">Close</button>
     </div>
   </div>
 </div>
@@ -615,6 +743,107 @@
   let items = store.get(ITEMS_KEY);
   if (!Array.isArray(items)) items = [];
   function saveItems() { store.set(ITEMS_KEY, items); }
+  let saveSoon = null;
+  function saveItemsSoon() { clearTimeout(saveSoon); saveSoon = setTimeout(saveItems, 400); }
+
+  // Targets: a quantitative item carries { target: {unit, per, dir}, targets: [{on, value}] }.
+  // The current target is the last entry; the list is the history of changes, not of intake.
+  // Times of day are unit 'time' with the value in minutes after midnight.
+  const today = () => {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  };
+  const hasTarget = it => !!(it && it.target && Array.isArray(it.targets) && it.targets.length);
+  const curTarget = it => hasTarget(it) ? it.targets[it.targets.length - 1].value : null;
+  const isTime = it => !!(it && it.target && it.target.unit === 'time');
+  const fmtNum = v => Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  function fmtTime(m, short) {
+    m = ((Math.round(m) % 1440) + 1440) % 1440;
+    const h = Math.floor(m / 60), mm = m % 60;
+    const h12 = h % 12 || 12;
+    const ap = h < 12 ? 'a.m.' : 'p.m.';
+    if (short) return h12 + (mm ? ':' + String(mm).padStart(2, '0') : '') + (h < 12 ? 'a' : 'p');
+    return h12 + ':' + String(mm).padStart(2, '0') + ' ' + ap;
+  }
+  function fmtValue(it, v) {
+    if (isTime(it)) return fmtTime(v);
+    const { unit, per } = it.target;
+    return fmtNum(v) + (unit ? (unit === 'x' ? '' : ' ') + unit : '') + (per ? '/' + per : '');
+  }
+  function targetLabel(it) {
+    if (!hasTarget(it)) return '';
+    return fmtValue(it, curTarget(it)) + (it.target.dir === 'min' ? ' minimum' : '');
+  }
+  function detailText(it) { return [targetLabel(it), it.detail].filter(Boolean).join(' \u00b7 '); }
+  const STEPS = { time: 5, g: 5, mg: 25, kcal: 50, steps: 500, hr: 0.5, min: 5, oz: 8, x: 1 };
+  function stepOf(it, v) {
+    const u = it.target.unit;
+    if (u in STEPS) return STEPS[u];
+    return v >= 5000 ? 500 : v >= 1000 ? 50 : v >= 100 ? 5 : 1;
+  }
+  // Evening items that cross midnight keep counting past 1440 so the plot stays continuous.
+  function parseTime(str, it) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(str || '');
+    if (!m) return NaN;
+    let v = Number(m[1]) * 60 + Number(m[2]);
+    const cur = curTarget(it);
+    if (cur != null && cur >= 1080 && v < 720) v += 1440;
+    return v;
+  }
+  const timeInputValue = v => { v = ((Math.round(v) % 1440) + 1440) % 1440; return String(Math.floor(v / 60)).padStart(2, '0') + ':' + String(v % 60).padStart(2, '0'); };
+
+  // Record a new target value. Same-day tweaks collapse into one entry, and undoing
+  // a change on the day it was made removes it.
+  function setTarget(it, v) {
+    if (!Number.isFinite(v) || !it.target) return false;
+    const t = it.targets || (it.targets = []);
+    const d = today();
+    const last = t[t.length - 1];
+    if (last && last.value === v) return false;
+    if (last && last.on === d) {
+      const prev = t[t.length - 2];
+      if (prev && prev.value === v) t.pop(); else last.value = v;
+    } else {
+      t.push({ on: d, value: v });
+    }
+    if (it.minutes && it.target.unit === 'min' && it.target.per === 'day') it.minutes = v;
+    return true;
+  }
+
+  // One-time migration: lift targets out of free-text details like "90 g/day" or "11:00 p.m.".
+  const SEED_DATE = '2026-09-11';
+  function parseDetail(detail) {
+    const d = (detail || '').trim();
+    let m = /^(\d{1,2}):(\d{2})\s*([ap])\.?m\.?$/i.exec(d);
+    if (m) {
+      let h = Number(m[1]) % 12;
+      if (m[3].toLowerCase() === 'p') h += 12;
+      return { target: { unit: 'time', per: '', dir: 'max' }, value: h * 60 + Number(m[2]), note: '' };
+    }
+    m = /^([\d,]+(?:\.\d+)?)\s*([a-z]*)\s*\/\s*(day|week)\b(.*)$/i.exec(d);
+    if (!m) return null;
+    const value = Number(m[1].replace(/,/g, ''));
+    if (!Number.isFinite(value)) return null;
+    let unit = m[2].toLowerCase();
+    if (unit === 'cal' || unit === 'calories') unit = 'kcal';
+    let note = m[4].trim().replace(/^[;,]\s*/, '');
+    let dir = 'max';
+    if (/^minimum\b/i.test(note)) { dir = 'min'; note = note.replace(/^minimum\b\s*/i, '').replace(/^[;,]\s*/, ''); }
+    return { target: { unit, per: m[3].toLowerCase(), dir }, value, note };
+  }
+  (function migrateTargets() {
+    let changed = false;
+    for (const it of items) {
+      if (it.target) continue;
+      const p = parseDetail(it.detail);
+      if (!p) continue;
+      it.target = p.target;
+      it.targets = [{ on: SEED_DATE, value: p.value }];
+      it.detail = p.note;
+      changed = true;
+    }
+    if (changed) saveItems();
+  })();
 
   // Which rows have their subtasks showing. Kept across days.
   let open = new Set(Array.isArray(store.get(OPEN_KEY)) ? store.get(OPEN_KEY) : []);
@@ -826,9 +1055,10 @@
     if (it.counter) li.setAttribute('data-counter', '');
     if (it.minutes) li.dataset.minutes = it.minutes;
     if (it.archived) li.setAttribute('data-archived', '');
+    if (hasTarget(it)) li.setAttribute('data-target', '');
     li.innerHTML = '<label><input type="checkbox"><div><div class="name"></div><div class="detail"></div></div></label>';
     li.querySelector('.name').textContent = it.name;
-    li.querySelector('.detail').textContent = it.detail || '';
+    li.querySelector('.detail').textContent = detailText(it);
     li.prepend(grip());
     const ctl = document.createElement('div');
     ctl.className = 'ctl';
@@ -932,6 +1162,12 @@
       }
       if (e.target.closest('label')) e.preventDefault();
       openEditor(items.find(it => it.name === nameOf(li)));
+      return;
+    }
+    const det = e.target.closest('.detail');
+    if (det) {
+      const it = items.find(x => x.name === nameOf(rowOf(det)));
+      if (hasTarget(it)) { e.preventDefault(); openHist(it); }
       return;
     }
     const b = e.target.closest('button');
@@ -1078,7 +1314,169 @@
     if (e.key !== 'Escape') return;
     if (!modal.hidden) closeModal();
     if (!editor.hidden) closeEditor();
+    if (!hist.hidden) closeHist();
   });
+
+  // Target sheet: the current value, a stepper, the history as a step chart, and the log.
+  const hist = document.getElementById('hist');
+  const hName = document.getElementById('h-name');
+  const hCur = document.getElementById('h-cur');
+  const hSub = document.getElementById('h-sub');
+  const hVal = document.getElementById('h-val');
+  const hMinus = document.getElementById('h-minus');
+  const hPlus = document.getElementById('h-plus');
+  const hChart = document.getElementById('h-chart');
+  const hLog = document.getElementById('h-log');
+  let histItem = null;
+
+  const DAY = 864e5;
+  const dayMs = s => new Date(s + 'T00:00:00').getTime();
+  function fmtDate(s, withYear) {
+    const d = new Date(s + 'T00:00:00');
+    const o = { month: 'short', day: 'numeric' };
+    if (withYear || d.getFullYear() !== new Date().getFullYear()) o.year = 'numeric';
+    return d.toLocaleDateString('en-US', o);
+  }
+  const DIRS = { max: 'at most', min: 'at least', at: 'exactly' };
+  const TIME_DIRS = { max: 'by', min: 'no earlier than', at: 'at' };
+
+  function openHist(it) {
+    histItem = it;
+    hist.hidden = false;
+    renderHist();
+  }
+  function closeHist() { hist.hidden = true; histItem = null; }
+
+  function renderHist() {
+    const it = histItem;
+    if (!it || hist.hidden) return;
+    const v = curTarget(it);
+    const time = isTime(it);
+    hName.textContent = it.name;
+    hCur.textContent = fmtValue(it, v);
+    hSub.textContent = (time ? TIME_DIRS : DIRS)[it.target.dir] || '';
+    if (time) {
+      if (hVal.type !== 'time') { hVal.type = 'time'; hVal.step = '60'; }
+      hVal.value = timeInputValue(v);
+    } else {
+      if (hVal.type !== 'number') { hVal.type = 'number'; hVal.step = 'any'; }
+      hVal.value = String(v);
+    }
+    renderChart(it);
+    renderLog(it);
+  }
+
+  // Y ticks land on round numbers; times land on round clock intervals.
+  function niceStep(range, time) {
+    if (time) {
+      for (const s of [5, 10, 15, 30, 60, 120, 180, 360, 720]) if (range / s <= 4) return s;
+      return 1440;
+    }
+    const raw = range / 3 || 1;
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= raw) return m * p;
+    return 10 * p;
+  }
+  function renderChart(it) {
+    const t = it.targets;
+    const time = isTime(it);
+    const W = 352, H = 160, L = 46, R = 14, T = 12, B = 24;
+    const to = Math.max(dayMs(today()), dayMs(t[t.length - 1].on));
+    let from = dayMs(t[0].on);
+    if (to - from < 13 * DAY) from = to - 13 * DAY;
+    const vals = t.map(e => e.value);
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    const step = niceStep(hi - lo || (time ? 30 : Math.abs(hi) * 0.1 || 1), time);
+    lo = Math.floor(lo / step) * step;
+    hi = Math.ceil(hi / step) * step;
+    if (lo === hi) { lo -= step; hi += step; }
+    if (hi - lo < 2 * step) { lo -= step; hi += step; }
+    if (!time && lo < 0 && Math.min(...vals) >= 0) lo = 0;
+    const x = d => L + (d - from) / (to - from) * (W - L - R);
+    const y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+    const fy = v => time ? fmtTime(v, true) : fmtNum(v);
+    let g = '', path = '', area = '', dots = '';
+    for (let v = lo; v <= hi + 1e-9; v += step) {
+      const yy = y(v).toFixed(1);
+      g += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '"/>';
+      g += '<text class="tick" x="' + (L - 6) + '" y="' + yy + '" dy="3.5" text-anchor="end">' + fy(v) + '</text>';
+    }
+    const pts = t.map(e => [x(Math.max(dayMs(e.on), from)), y(e.value)]);
+    path = 'M' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1);
+    for (let i = 1; i < pts.length; i++) path += 'H' + pts[i][0].toFixed(1) + 'V' + pts[i][1].toFixed(1);
+    path += 'H' + (W - R);
+    if (it.target.dir !== 'at') {
+      const edge = it.target.dir === 'max' ? y(lo) : y(hi);
+      area = '<path class="area" d="' + path + 'V' + edge.toFixed(1) + 'H' + pts[0][0].toFixed(1) + 'Z"/>';
+    }
+    t.forEach((e, i) => {
+      const [px, py] = pts[i];
+      const label = fmtDate(e.on) + ' \u00b7 ' + fy(e.value);
+      dots += '<g><circle class="hit" cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="14" data-i="' + i + '"><title>' + label + '</title></circle>' +
+        '<circle class="dot" cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4"/></g>';
+    });
+    const xl = '<text class="tick" x="' + L + '" y="' + (H - 6) + '">' + fmtDate(new Date(from).getFullYear() + '-' + String(new Date(from).getMonth() + 1).padStart(2, '0') + '-' + String(new Date(from).getDate()).padStart(2, '0')) + '</text>' +
+      '<text class="tick" x="' + (W - R) + '" y="' + (H - 6) + '" text-anchor="end">Today</text>';
+    hChart.innerHTML = g + area + '<path class="line" d="' + path + '"/>' + dots + xl + '<text class="tip" id="h-tip" x="' + (W / 2) + '" y="' + (T - 2) + '" text-anchor="middle"></text>';
+  }
+  hChart.addEventListener('pointerover', e => {
+    const hit = e.target.closest('.hit');
+    const tip = document.getElementById('h-tip');
+    if (!hit || !tip) return;
+    tip.textContent = hit.querySelector('title').textContent;
+  });
+  hChart.addEventListener('pointerout', e => {
+    if (!e.target.closest('.hit')) return;
+    const tip = document.getElementById('h-tip');
+    if (tip) tip.textContent = '';
+  });
+
+  function renderLog(it) {
+    const t = it.targets;
+    const time = isTime(it);
+    const f = v => time ? fmtTime(v) : fmtNum(v);
+    hLog.innerHTML = '';
+    for (let i = t.length - 1; i >= 0; i--) {
+      const li = document.createElement('li');
+      const d = document.createElement('span');
+      d.className = 'd';
+      d.textContent = fmtDate(t[i].on, true);
+      const v = document.createElement('span');
+      if (i > 0) v.innerHTML = '<span class="was"></span> \u2192 ';
+      v.append(f(t[i].value));
+      if (i > 0) v.querySelector('.was').textContent = f(t[i - 1].value);
+      li.append(d, v);
+      hLog.append(li);
+    }
+  }
+
+  // Apply a value from the stepper or the field, save, and refresh the row and the sheet.
+  function applyHist(v) {
+    const it = histItem;
+    if (!it) return;
+    if (setTarget(it, v)) {
+      saveItemsSoon();
+      const li = byName.get(it.name);
+      if (li) {
+        li.querySelector(':scope > label .detail').textContent = detailText(it);
+        if (it.minutes) li.dataset.minutes = it.minutes;
+      }
+      tickSound();
+    }
+    renderHist();
+  }
+  function readHist() {
+    if (!histItem) return NaN;
+    if (isTime(histItem)) return parseTime(hVal.value, histItem);
+    const n = Number(hVal.value);
+    return hVal.value.trim() === '' ? NaN : n;
+  }
+  hMinus.addEventListener('click', () => { const v = curTarget(histItem); applyHist(v - stepOf(histItem, v)); });
+  hPlus.addEventListener('click', () => { const v = curTarget(histItem); applyHist(v + stepOf(histItem, v)); });
+  hVal.addEventListener('change', () => applyHist(readHist()));
+  hVal.addEventListener('keydown', e => { if (e.key === 'Enter') { hVal.blur(); } });
+  document.getElementById('h-close').addEventListener('click', closeHist);
+  hist.addEventListener('click', e => { if (e.target === hist) closeHist(); });
 
   // Sprint: pick a few items, Go, and the list narrows to just those.
   const SPRINT_KEY = 'the-list-sprint';
@@ -1131,6 +1529,10 @@
   const eDetail = document.getElementById('e-detail');
   const eSubs = document.getElementById('e-subs');
   const eMinutes = document.getElementById('e-minutes');
+  const eTarget = document.getElementById('e-target');
+  const eUnit = document.getElementById('e-unit');
+  const ePer = document.getElementById('e-per');
+  const eDir = document.getElementById('e-dir');
   const eCounter = document.getElementById('e-counter');
   const eArchived = document.getElementById('e-archived');
   const eDelete = document.getElementById('e-delete');
@@ -1144,6 +1546,14 @@
     eDetail.value = it ? it.detail || '' : '';
     eSubs.value = it && Array.isArray(it.subs) ? it.subs.join('\n') : '';
     eMinutes.value = it && it.minutes ? it.minutes : '';
+    const tg = it && it.target ? it.target : { unit: '', per: 'day', dir: 'max' };
+    if (!Array.from(eUnit.options).some(o => o.value === tg.unit)) eUnit.add(new Option(tg.unit, tg.unit));
+    eUnit.value = tg.unit;
+    ePer.value = tg.per;
+    eDir.value = tg.dir;
+    syncTargetInput();
+    const v = curTarget(it);
+    eTarget.value = v == null ? '' : tg.unit === 'time' ? timeInputValue(v) : String(v);
     eCounter.checked = !!(it && it.counter);
     eArchived.checked = !!(it && it.archived);
     eDelete.hidden = !it;
@@ -1151,6 +1561,16 @@
     eName.focus();
   }
   function closeEditor() { editor.hidden = true; editingItem = null; }
+  // A time-of-day target takes a clock input and has no period.
+  function syncTargetInput() {
+    const time = eUnit.value === 'time';
+    const want = time ? 'time' : 'number';
+    if (eTarget.type !== want) { eTarget.type = want; eTarget.step = time ? '60' : 'any'; eTarget.value = ''; }
+    ePer.disabled = time;
+    if (time) ePer.value = '';
+    else if (!ePer.value) ePer.value = 'day';
+  }
+  eUnit.addEventListener('change', syncTargetInput);
 
   // State is keyed by name, so a rename or delete has to touch every key.
   function renameEverywhere(from, to) {
@@ -1192,12 +1612,26 @@
     const minutes = Number(eMinutes.value) > 0 ? Number(eMinutes.value) : null;
     const subs = Array.from(new Set(eSubs.value.split('\n').map(s => s.trim()).filter(Boolean)));
     const next = { name, detail: eDetail.value.trim(), counter: eCounter.checked, minutes, archived: eArchived.checked, subs };
+    // Target: keep the history when the item already has one; a blank value drops it.
+    const unit = eUnit.value;
+    const raw = eTarget.value.trim();
+    const tv = raw === '' ? NaN : unit === 'time' ? parseTime(raw, editingItem && isTime(editingItem) ? editingItem : null) : Number(raw);
+    if (Number.isFinite(tv)) {
+      next.target = { unit, per: unit === 'time' ? '' : ePer.value, dir: eDir.value };
+      next.targets = editingItem && Array.isArray(editingItem.targets) ? editingItem.targets : [];
+    } else {
+      next.target = undefined;
+      next.targets = undefined;
+    }
     if (editingItem) {
       if (editingItem.name !== name) renameEverywhere(editingItem.name, name);
       Object.assign(editingItem, next);
     } else {
       items.push(next);
     }
+    const saved = editingItem || next;
+    if (Number.isFinite(tv)) setTarget(saved, tv);
+    else { delete saved.target; delete saved.targets; }
     saveItems();
     closeEditor();
     rebuild();
