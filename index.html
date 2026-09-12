@@ -208,6 +208,27 @@
     touch-action: none;
   }
   .grip:hover { color: var(--muted); background: #f3f1ed; }
+  /* Groups: a colored stripe down the left is the outer handle and moves the whole group;
+     the dotted grip beside it moves a row within its group. Ungrouped rows keep a blank gutter. */
+  .gut { flex: none; align-self: stretch; width: 14px; }
+  .grip.outer {
+    width: 14px;
+    position: relative;
+    color: transparent;
+  }
+  .grip.outer::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--gc);
+  }
+  .grip.outer:hover { background: #f3f1ed; }
+  .grip.outer svg { display: none; }
+  #list > li[data-group] { background: color-mix(in srgb, var(--gc) 5%, var(--card)); }
+  #list > li[data-group] label:hover { background: color-mix(in srgb, var(--gc) 9%, var(--card)); }
   .grip:active { cursor: grabbing; }
   .grip svg { display: block; width: 10px; height: 16px; }
   li.dragging { opacity: 0.35; }
@@ -444,6 +465,41 @@
   }
   .f.check span { margin: 0; font-size: 14px; color: var(--text); }
   .form .m-actions { margin-top: 20px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chips:empty { display: none; }
+  .chip {
+    padding: 3px 10px 3px 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .chip::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--gc); }
+  .chip.on { border-color: var(--text); }
+  .chip.new::before { display: none; }
+  .grow { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+  .grow[hidden] { display: none; }
+  .swatch {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    background: var(--gc);
+    box-shadow: inset 0 0 0 2px var(--card);
+  }
+  .swatch:hover { border-color: #d6d3cc; }
+  .swatch.on { border-color: var(--text); }
+  .tiny {
+    margin-left: auto;
+    padding: 3px 9px;
+    font-size: 12px;
+    border-radius: 999px;
+  }
   .danger { color: #c0392b; margin-right: auto; }
   .danger:hover { border-color: #e6b3ad; }
 
@@ -644,6 +700,14 @@
     </div>
     <label class="f"><span>Subtasks, one per line</span><textarea id="e-subs" rows="3" autocomplete="off"></textarea></label>
     <label class="f"><span>Timer, minutes</span><input id="e-minutes" type="number" min="1" step="1" inputmode="numeric"></label>
+    <div class="f"><span>Group</span>
+      <input id="e-group" type="text" autocomplete="off" placeholder="Find or create a group">
+      <div class="chips" id="g-chips"></div>
+      <div class="grow" id="g-row" hidden>
+        <span id="g-colors" style="display:contents"></span>
+        <button id="g-delete" type="button" class="tiny danger" hidden>Delete group</button>
+      </div>
+    </div>
     <label class="f check"><input id="e-counter" type="checkbox"><span>Weekly counter</span></label>
     <label class="f check"><input id="e-archived" type="checkbox"><span>Archived</span></label>
     <div class="m-actions">
@@ -845,6 +909,49 @@
     if (changed) saveItems();
   })();
 
+  // Groups: items tagged with the same group share a color and travel together in the list.
+  const GROUPS_KEY = 'the-list-groups';
+  const PALETTE = ['#e5484d', '#f76b15', '#d5a000', '#30a46c', '#12a594', '#3e63dd', '#8e4ec6', '#d6409f'];
+  let groups = store.get(GROUPS_KEY);
+  if (!groups || typeof groups !== 'object' || Array.isArray(groups)) groups = {};
+  function saveGroups() { store.set(GROUPS_KEY, groups); }
+  function nextColor() {
+    const used = new Set(Object.values(groups).map(g => g.color));
+    return PALETTE.find(c => !used.has(c)) || PALETTE[Object.keys(groups).length % PALETTE.length];
+  }
+  function ensureGroup(name, color) {
+    if (!groups[name]) { groups[name] = { color: color || nextColor() }; saveGroups(); }
+    else if (color && groups[name].color !== color) { groups[name].color = color; saveGroups(); }
+    return groups[name];
+  }
+  const groupRows = li => Array.from(li.parentNode.children).filter(r => r.dataset.group === li.dataset.group);
+  // Keep each group's rows contiguous, anchored where its first row sits. No-op when already so.
+  function regroup() {
+    const rows = Array.from(list.children);
+    const seen = new Set();
+    const out = [];
+    for (const li of rows) {
+      const g = li.dataset.group;
+      if (!g) { out.push(li); continue; }
+      if (seen.has(g)) continue;
+      seen.add(g);
+      for (const r of rows) if (r.dataset.group === g) out.push(r);
+    }
+    if (out.some((li, i) => li !== rows[i])) list.append(...out);
+  }
+  // The same rule for the items array, which is the default order.
+  function regroupItems() {
+    const seen = new Set();
+    const out = [];
+    for (const it of items) {
+      if (!it.group) { out.push(it); continue; }
+      if (seen.has(it.group)) continue;
+      seen.add(it.group);
+      for (const x of items) if (x.group === it.group) out.push(x);
+    }
+    if (out.some((it, i) => it !== items[i])) { items = out; saveItems(); }
+  }
+
   // Which rows have their subtasks showing. Kept across days.
   let open = new Set(Array.isArray(store.get(OPEN_KEY)) ? store.get(OPEN_KEY) : []);
   function saveOpen() { store.set(OPEN_KEY, Array.from(open)); }
@@ -895,6 +1002,7 @@
     }
     for (const li of original) if (!seen.has(nameOf(li))) ordered.push(li);
     list.append(...ordered);
+    regroup();
   }
 
   const progress = document.getElementById('progress');
@@ -1006,32 +1114,46 @@
     g.innerHTML = GRIP;
     return g;
   }
+  // The outer handle drags a whole group as a block. The inner grip of a grouped row stays
+  // inside its group. Anything else never lands in the middle of a group.
   function draggable(ul, onDrop) {
-    let dragging = null;
+    let dragging = null;  // the row under the pointer
+    let block = [];       // every row that moves with it
+    let outer = false;
     ul.addEventListener('dragstart', e => {
       const g = e.target.closest('.grip');
       if (!g) { e.preventDefault(); return; }
       dragging = g.closest('li');
+      outer = g.classList.contains('outer');
+      block = outer ? groupRows(dragging) : [dragging];
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', nameOf(dragging));
       const r = dragging.getBoundingClientRect();
       e.dataTransfer.setDragImage(dragging, e.clientX - r.left, e.clientY - r.top);
-      setTimeout(() => dragging && dragging.classList.add('dragging'), 0);
+      setTimeout(() => { for (const li of block) li.classList.add('dragging'); }, 0);
     });
     ul.addEventListener('dragover', e => {
       if (!dragging) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       const over = Array.from(ul.children).find(li => li.contains(e.target));
-      if (!over || over === dragging) return;
+      if (!over || block.includes(over)) return;
       const r = over.getBoundingClientRect();
-      if (e.clientY > r.top + r.height / 2) over.after(dragging); else over.before(dragging);
+      const below = e.clientY > r.top + r.height / 2;
+      if (!outer && dragging.dataset.group) {
+        if (over.dataset.group !== dragging.dataset.group) return;
+        if (below) over.after(dragging); else over.before(dragging);
+        return;
+      }
+      const target = over.dataset.group ? groupRows(over) : [over];
+      if (below) target[target.length - 1].after(...block); else target[0].before(...block);
     });
     ul.addEventListener('drop', e => { if (dragging) e.preventDefault(); });
     ul.addEventListener('dragend', () => {
       if (!dragging) return;
-      dragging.classList.remove('dragging');
+      for (const li of block) li.classList.remove('dragging');
       dragging = null;
+      block = [];
       onDrop();
     });
   }
@@ -1059,7 +1181,18 @@
     li.innerHTML = '<label><input type="checkbox"><div><div class="name"></div><div class="detail"></div></div></label>';
     li.querySelector('.name').textContent = it.name;
     li.querySelector('.detail').textContent = detailText(it);
-    li.prepend(grip());
+    if (it.group) {
+      li.dataset.group = it.group;
+      li.style.setProperty('--gc', ensureGroup(it.group).color);
+      const og = grip();
+      og.classList.add('outer');
+      og.title = it.group;
+      li.prepend(og, grip());
+    } else {
+      const gut = document.createElement('span');
+      gut.className = 'gut';
+      li.prepend(gut, grip());
+    }
     const ctl = document.createElement('div');
     ctl.className = 'ctl';
     if (it.counter) {
@@ -1090,6 +1223,7 @@
   // Render everything from items, then re-apply saved checks, order, and sprint picks.
   function rebuild() {
     if (timer.li) closeModal();
+    regroupItems();
     list.innerHTML = '';
     original = items.map(buildRow);
     byName = new Map(original.map(li => [nameOf(li), li]));
@@ -1104,6 +1238,7 @@
 
   // In edit mode the rows on screen are the default order. Save it, leaving today's order alone.
   function saveDefaultOrder() {
+    regroup();
     const order = Array.from(list.children).map(nameOf);
     items.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
     saveItems();
@@ -1112,8 +1247,24 @@
   }
 
   draggable(list, () => {
+    regroup();
     if (editing()) saveDefaultOrder(); else save();
   });
+
+  // Top and bottom stay inside the row's group; the group itself moves by its outer handle.
+  function moveTop(li) {
+    if (li.dataset.group) { const g = groupRows(li); if (g[0] !== li) g[0].before(li); }
+    else list.prepend(li);
+    regroup();
+  }
+  function moveBottom(li) {
+    let pool = Array.from(list.children).filter(x => x !== li && (editing() || !x.hasAttribute('data-archived')));
+    if (li.dataset.group) pool = pool.filter(x => x.dataset.group === li.dataset.group);
+    if (!editing()) { const todo = pool.filter(x => !box(x).checked); if (todo.length) pool = todo; }
+    if (pool.length) pool[pool.length - 1].after(li);
+    else if (!li.dataset.group) list.append(li);
+    regroup();
+  }
 
   document.getElementById('archive').addEventListener('click', e => {
     list.classList.toggle('archive');
@@ -1156,7 +1307,7 @@
       if (!li || e.target.closest('.grip')) return;
       const mv = e.target.closest('.move');
       if (mv) {
-        if (mv.classList.contains('top')) list.prepend(li); else list.append(li);
+        if (mv.classList.contains('top')) moveTop(li); else moveBottom(li);
         saveDefaultOrder();
         return;
       }
@@ -1192,13 +1343,10 @@
       saveCounts();
       renderCount(li);
     } else if (b.classList.contains('top')) {
-      list.prepend(li);
+      moveTop(li);
       save();
     } else if (b.classList.contains('bottom')) {
-      // Bottom of the unchecked items: after the last unchecked visible row.
-      const todo = Array.from(list.children).filter(x =>
-        x !== li && !x.hasAttribute('data-archived') && !box(x).checked);
-      if (todo.length) todo[todo.length - 1].after(li); else list.append(li);
+      moveBottom(li);  // bottom of the unchecked rows, within the group if it has one
       save();
     }
   });
@@ -1208,6 +1356,7 @@
     const done = rows.filter(li => box(li).checked);
     const todo = rows.filter(li => !box(li).checked);
     list.append(...todo, ...done);
+    regroup();
     save();
   });
 
@@ -1535,6 +1684,12 @@
   const eDir = document.getElementById('e-dir');
   const eCounter = document.getElementById('e-counter');
   const eArchived = document.getElementById('e-archived');
+  const eGroup = document.getElementById('e-group');
+  const gChips = document.getElementById('g-chips');
+  const gRow = document.getElementById('g-row');
+  const gColors = document.getElementById('g-colors');
+  const gDelete = document.getElementById('g-delete');
+  let gColor = null;  // color picked in this editor session, if any
   const eDelete = document.getElementById('e-delete');
   const eCancel = document.getElementById('e-cancel');
   const eSave = document.getElementById('e-save');
@@ -1556,11 +1711,81 @@
     eTarget.value = v == null ? '' : tg.unit === 'time' ? timeInputValue(v) : String(v);
     eCounter.checked = !!(it && it.counter);
     eArchived.checked = !!(it && it.archived);
+    eGroup.value = it && it.group ? it.group : '';
+    gColor = null;
+    renderGroupUI();
     eDelete.hidden = !it;
     editor.hidden = false;
     eName.focus();
   }
   function closeEditor() { editor.hidden = true; editingItem = null; }
+
+  // Group picker: type to filter existing groups, tap one to pick it, or keep typing to
+  // create a new one. Swatches set the group's color; Delete group untags every item.
+  function renderGroupUI() {
+    const typed = eGroup.value.trim();
+    const q = typed.toLowerCase();
+    const names = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+    const shown = q ? names.filter(n => n.toLowerCase().includes(q)) : names;
+    gChips.innerHTML = '';
+    for (const n of shown) {
+      const c = document.createElement('button');
+      c.type = 'button';
+      c.className = 'chip' + (n === typed ? ' on' : '');
+      c.textContent = n;
+      c.style.setProperty('--gc', groups[n].color);
+      c.dataset.name = n;
+      gChips.append(c);
+    }
+    const exists = !!(typed && groups[typed]);
+    if (typed && !exists) {
+      const c = document.createElement('button');
+      c.type = 'button';
+      c.className = 'chip new';
+      c.textContent = 'New group \u201c' + typed + '\u201d';
+      c.dataset.name = typed;
+      gChips.append(c);
+    }
+    gRow.hidden = !typed;
+    gDelete.hidden = !exists;
+    const cur = gColor || (exists ? groups[typed].color : nextColor());
+    gColors.innerHTML = '';
+    for (const col of PALETTE) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch' + (col === cur ? ' on' : '');
+      b.style.setProperty('--gc', col);
+      b.dataset.color = col;
+      b.title = col;
+      gColors.append(b);
+    }
+  }
+  eGroup.addEventListener('input', () => { gColor = null; renderGroupUI(); });
+  gChips.addEventListener('click', e => {
+    const c = e.target.closest('.chip');
+    if (!c) return;
+    eGroup.value = c.dataset.name;
+    gColor = null;
+    renderGroupUI();
+  });
+  gColors.addEventListener('click', e => {
+    const b = e.target.closest('.swatch');
+    if (!b) return;
+    gColor = b.dataset.color;
+    renderGroupUI();
+  });
+  gDelete.addEventListener('click', () => {
+    const name = eGroup.value.trim();
+    if (!groups[name]) return;
+    delete groups[name];
+    saveGroups();
+    for (const it of items) if (it.group === name) delete it.group;
+    saveItems();
+    eGroup.value = '';
+    gColor = null;
+    renderGroupUI();
+    rebuild();
+  });
   // A time-of-day target takes a clock input and has no period.
   function syncTargetInput() {
     const time = eUnit.value === 'time';
@@ -1623,6 +1848,9 @@
       next.target = undefined;
       next.targets = undefined;
     }
+    const gname = eGroup.value.trim();
+    next.group = gname || undefined;
+    if (gname) ensureGroup(gname, gColor);
     if (editingItem) {
       if (editingItem.name !== name) renameEverywhere(editingItem.name, name);
       Object.assign(editingItem, next);
@@ -1632,6 +1860,7 @@
     const saved = editingItem || next;
     if (Number.isFinite(tv)) setTarget(saved, tv);
     else { delete saved.target; delete saved.targets; }
+    if (!saved.group) delete saved.group;
     saveItems();
     closeEditor();
     rebuild();
