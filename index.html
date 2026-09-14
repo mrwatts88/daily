@@ -1379,6 +1379,7 @@
   const mComplete = document.getElementById('m-complete');
   const mClose = document.getElementById('m-close');
   const timer = { li: null, total: 0, remaining: 0, endAt: 0, running: false, done: false, iv: null };
+  const baseTitle = document.title;
 
   function fmt(ms) {
     const s = Math.max(0, Math.ceil(ms / 1000));
@@ -1408,6 +1409,7 @@
     timer.li = null;
     timer.running = false;
     timer.done = false;
+    document.title = baseTitle;
   }
   function tickTimer() {
     if (!timer.li) return;
@@ -1416,6 +1418,7 @@
     const b = timer.li.querySelector('.tmr');
     b.classList.add('live');
     b.textContent = fmt(timer.remaining);
+    document.title = (timer.running ? '' : '⏸ ') + fmt(timer.remaining) + ' · ' + nameOf(timer.li);
     renderModal();
   }
   function finishTimer() {
@@ -1427,6 +1430,7 @@
     const b = timer.li.querySelector('.tmr');
     b.classList.add('live');
     b.textContent = 'Done';
+    document.title = 'Done · ' + nameOf(timer.li);
     chime();
     buzz([60, 40, 60]);
     openModal();
